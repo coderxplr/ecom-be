@@ -74,7 +74,7 @@ const generateId = (prefix = "") =>
 
 // Get all products
 app.get("/products", (req, res) => {
-  res.json(productsData);
+  return res.json(productsData);
 });
 
 // Create a new product
@@ -83,7 +83,7 @@ app.post("/products", (req, res) => {
   newProduct.ProductID = generateId("prod_");
   productsData.push(newProduct);
   writeData({ productsData, categoriesData }); // Save to file
-  res.status(201).json(newProduct);
+  return res.status(201).json(newProduct);
 });
 
 // Update a product
@@ -92,9 +92,9 @@ app.put("/products/:id", (req, res) => {
   if (index !== -1) {
     productsData[index] = { ...productsData[index], ...req.body };
     writeData({ productsData, categoriesData }); // Save to file
-    res.json(productsData[index]);
+    return res.json(productsData[index]);
   } else {
-    res.status(404).json({ message: "Product not found" });
+    return res.status(404).json({ message: "Product not found" });
   }
 });
 
@@ -104,15 +104,15 @@ app.delete("/products/:id", (req, res) => {
   if (index !== -1) {
     productsData.splice(index, 1);
     writeData({ productsData, categoriesData }); // Save to file
-    res.status(204).end();
+    return res.status(204).end();
   } else {
-    res.status(404).json({ message: "Product not found" });
+    return res.status(404).json({ message: "Product not found" });
   }
 });
 
 // Get all categories
 app.get("/categories", (req, res) => {
-  res.json(categoriesData);
+  return res.json(categoriesData);
 });
 
 // Create a new category
@@ -122,7 +122,7 @@ app.post("/categories", (req, res) => {
   categoriesData.push(newCategory);
 
   writeData({ productsData, categoriesData }); // Save to file
-  res.status(201).json(newCategory);
+  return res.status(201).json(newCategory);
 });
 
 // Update a category
@@ -131,9 +131,9 @@ app.put("/categories/:id", (req, res) => {
   if (index !== -1) {
     categoriesData[index] = { ...categoriesData[index], ...req.body };
     writeData({ productsData, categoriesData }); // Save to file
-    res.json(categoriesData[index]);
+    return res.json(categoriesData[index]);
   } else {
-    res.status(404).json({ message: "Category not found" });
+    return res.status(404).json({ message: "Category not found" });
   }
 });
 
@@ -143,9 +143,9 @@ app.delete("/categories/:id", (req, res) => {
   if (index !== -1) {
     categoriesData.splice(index, 1);
     writeData({ productsData, categoriesData }); // Save to file
-    res.status(204).end();
+    return res.status(204).end();
   } else {
-    res.status(404).json({ message: "Category not found" });
+    return res.status(404).json({ message: "Category not found" });
   }
 });
 
@@ -159,7 +159,7 @@ app.post("/upload", upload.single("image"), (req, res) => {
   const fileUrl = req.file.location;
   console.log("fileUrl :", fileUrl);
 
-  res.status(200).json({ imageUrl: fileUrl });
+  return res.status(200).json({ imageUrl: fileUrl });
 });
 
 // Start server
