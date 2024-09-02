@@ -3,32 +3,20 @@ const rateLimit = require("express-rate-limit");
 const multer = require("multer");
 const multerS3 = require("multer-s3");
 const { S3Client } = require("@aws-sdk/client-s3");
-const fs = require("fs");
-const path = require("path");
+const { Pool } = require("pg");
 const cors = require("cors");
 require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// File system paths
-const dataFilePath = path.join(__dirname, "data.json");
-
-// Utility functions for file system
-const readData = () => {
-  if (fs.existsSync(dataFilePath)) {
-    const rawData = fs.readFileSync(dataFilePath);
-    return JSON.parse(rawData);
-  }
-  return { productsData: [], categoriesData: [] };
-};
-
-const writeData = (data) => {
-  fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2));
-};
-
-// Load data from file system
-let { productsData, categoriesData } = readData();
+// PostgreSQL setup
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+});
 
 // AWS S3 configuration using v3
 const s3 = new S3Client({
@@ -73,79 +61,146 @@ const generateId = (prefix = "") =>
 // Routes
 
 // Get all products
-app.get("/products", (req, res) => {
-  return res.json(productsData);
+app.get("/products", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT data FROM products");
+    const products = result.rows.map(row => row.data);
+    res.json(products);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error fetching products" });
+  }
 });
 
 // Create a new product
-app.post("/products", (req, res) => {
+app.post("/products", async (req, res) => {
   const newProduct = req.body;
   newProduct.ProductID = generateId("prod_");
-  productsData.push(newProduct);
-  writeData({ productsData, categoriesData }); // Save to file
-  return res.status(201).json(newProduct);
+
+  try {
+    await pool.query(
+      "INSERT INTO products (data) VALUES ($1)",
+      [newProduct]
+    );
+    res.status(201).json(newProduct);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error creating product" });
+  }
 });
 
 // Update a product
-app.put("/products/:id", (req, res) => {
-  const index = productsData.findIndex((p) => p.ProductID === req.params.id);
-  if (index !== -1) {
-    productsData[index] = { ...productsData[index], ...req.body };
-    writeData({ productsData, categoriesData }); // Save to file
-    return res.json(productsData[index]);
-  } else {
-    return res.status(404).json({ message: "Product not found" });
+app.put("/products/:id", async (req, res) => {
+  const { id } = req.params;
+  const updatedProduct = req.body;
+
+  try {
+    const result = await pool.query(
+      "UPDATE products SET data = jsonb_set(data, '{ProductID}', $1) WHERE data->>'ProductID' = $2 RETURNING data",
+      [JSON.stringify(updatedProduct), id]
+    );
+
+    if (result.rows.length > 0) {
+      res.json(result.rows[0].data);
+    } else {
+      res.status(404).json({ message: "Product not found" });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error updating product" });
   }
 });
 
 // Delete a product
-app.delete("/products/:id", (req, res) => {
-  const index = productsData.findIndex((p) => p.ProductID === req.params.id);
-  if (index !== -1) {
-    productsData.splice(index, 1);
-    writeData({ productsData, categoriesData }); // Save to file
-    return res.status(204).end();
-  } else {
-    return res.status(404).json({ message: "Product not found" });
+app.delete("/products/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(
+      "DELETE FROM products WHERE data->>'ProductID' = $1 RETURNING data",
+      [id]
+    );
+
+    if (result.rows.length > 0) {
+      res.status(204).end();
+    } else {
+      res.status(404).json({ message: "Product not found" });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error deleting product" });
   }
 });
 
 // Get all categories
-app.get("/categories", (req, res) => {
-  return res.json(categoriesData);
+app.get("/categories", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT data FROM categories");
+    const categories = result.rows.map(row => row.data);
+    res.json(categories);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error fetching categories" });
+  }
 });
 
 // Create a new category
-app.post("/categories", (req, res) => {
+app.post("/categories", async (req, res) => {
   const newCategory = req.body;
   newCategory.CategoryID = generateId("cat_");
-  categoriesData.push(newCategory);
 
-  writeData({ productsData, categoriesData }); // Save to file
-  return res.status(201).json(newCategory);
+  try {
+    await pool.query(
+      "INSERT INTO categories (data) VALUES ($1)",
+      [newCategory]
+    );
+    res.status(201).json(newCategory);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error creating category" });
+  }
 });
 
 // Update a category
-app.put("/categories/:id", (req, res) => {
-  const index = categoriesData.findIndex((c) => c.CategoryID === req.params.id);
-  if (index !== -1) {
-    categoriesData[index] = { ...categoriesData[index], ...req.body };
-    writeData({ productsData, categoriesData }); // Save to file
-    return res.json(categoriesData[index]);
-  } else {
-    return res.status(404).json({ message: "Category not found" });
+app.put("/categories/:id", async (req, res) => {
+  const { id } = req.params;
+  const updatedCategory = req.body;
+
+  try {
+    const result = await pool.query(
+      "UPDATE categories SET data = jsonb_set(data, '{CategoryID}', $1) WHERE data->>'CategoryID' = $2 RETURNING data",
+      [JSON.stringify(updatedCategory), id]
+    );
+
+    if (result.rows.length > 0) {
+      res.json(result.rows[0].data);
+    } else {
+      res.status(404).json({ message: "Category not found" });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error updating category" });
   }
 });
 
 // Delete a category
-app.delete("/categories/:id", (req, res) => {
-  const index = categoriesData.findIndex((c) => c.CategoryID === req.params.id);
-  if (index !== -1) {
-    categoriesData.splice(index, 1);
-    writeData({ productsData, categoriesData }); // Save to file
-    return res.status(204).end();
-  } else {
-    return res.status(404).json({ message: "Category not found" });
+app.delete("/categories/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(
+      "DELETE FROM categories WHERE data->>'CategoryID' = $1 RETURNING data",
+      [id]
+    );
+
+    if (result.rows.length > 0) {
+      res.status(204).end();
+    } else {
+      res.status(404).json({ message: "Category not found" });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error deleting category" });
   }
 });
 
@@ -159,7 +214,7 @@ app.post("/upload", upload.single("image"), (req, res) => {
   const fileUrl = req.file.location;
   console.log("fileUrl :", fileUrl);
 
-  return res.status(200).json({ imageUrl: fileUrl });
+  res.status(200).json({ imageUrl: fileUrl });
 });
 
 // Start server
