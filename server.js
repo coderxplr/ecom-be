@@ -96,7 +96,7 @@ app.put("/products/:id", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "UPDATE products SET data = jsonb_set(data, '{ProductID}', $1) WHERE data->>'ProductID' = $2 RETURNING data",
+      "UPDATE products SET data = jsonb_set(data , $1) WHERE data->>'ProductID' = $2 RETURNING data",
       [JSON.stringify(updatedProduct), id]
     );
 
@@ -168,7 +168,7 @@ app.put("/categories/:id", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "UPDATE categories SET data = jsonb_set(data, '{CategoryID}', $1) WHERE data->>'CategoryID' = $2 RETURNING data",
+      "UPDATE categories SET data = jsonb_set(data, $1) WHERE data->>'CategoryID' = $2 RETURNING data",
       [JSON.stringify(updatedCategory), id]
     );
 
