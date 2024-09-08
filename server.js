@@ -96,8 +96,8 @@ app.put("/products/:id", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "UPDATE products SET data = jsonb_set(data , $1) WHERE data->>'ProductID' = $2 RETURNING data",
-      [JSON.stringify(updatedProduct), id]
+      "UPDATE products SET data = $1, updated_at = NOW() WHERE data->>'ProductID' = $2 RETURNING data",
+      [updatedProduct, id]
     );
 
     if (result.rows.length > 0) {
