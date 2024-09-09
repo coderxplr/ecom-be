@@ -75,7 +75,7 @@ app.get("/products", async (req, res) => {
 // Create a new product
 app.post("/products", async (req, res) => {
   const newProduct = req.body;
-  newProduct.ProductID = generateId("prod_");
+  newProduct.ProductId = generateId("prod_");
 
   try {
     await pool.query(
@@ -96,7 +96,7 @@ app.put("/products/:id", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "UPDATE products SET data = $1, updated_at = NOW() WHERE data->>'ProductID' = $2 RETURNING data",
+      "UPDATE products SET data = $1, updated_at = NOW() WHERE data->>'ProductId' = $2 RETURNING data",
       [updatedProduct, id]
     );
 
@@ -117,7 +117,7 @@ app.delete("/products/:id", async (req, res) => {
 
   try {
     const result = await pool.query(
-      "DELETE FROM products WHERE data->>'ProductID' = $1 RETURNING data",
+      "DELETE FROM products WHERE data->>'ProductId' = $1 RETURNING data",
       [id]
     );
 
